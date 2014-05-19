@@ -9,12 +9,12 @@ from twisted.web import client
 import time
 
 import lib.logger
-log = lib.logger.get_logger('bitcoin_rpc')
+log = lib.logger.get_logger('coin_rpc')
 
-class BitcoinRPC(object):
+class CoinRPC(object):
     
     def __init__(self, host, port, username, password):
-        log.debug("Got to Bitcoin RPC")
+        log.debug("Got to Coin RPC")
         self.bitcoin_url = 'http://%s:%d' % (host, port)
         self.credentials = base64.b64encode("%s:%s" % (username, password))
         self.headers = {
@@ -22,7 +22,7 @@ class BitcoinRPC(object):
             'Authorization': 'Basic %s' % self.credentials,
         }
         client.HTTPClientFactory.noisy = False
-	self.has_submitblock = False        
+        self.has_submitblock = False        
 
     def _call_raw(self, data):
         client.Headers
@@ -46,24 +46,24 @@ class BitcoinRPC(object):
         try:
             log.info("Checking for submitblock")
             resp = (yield self._call('submitblock', []))
-	    self.has_submitblock = True
+            self.has_submitblock = True
         except Exception as e:
             if (str(e) == "404 Not Found"):
                 log.debug("No submitblock detected.")
-		self.has_submitblock = False
+                self.has_submitblock = False
             elif (str(e) == "500 Internal Server Error"):
                 log.debug("submitblock detected.")
-		self.has_submitblock = True
+                self.has_submitblock = True
             else:
                 log.debug("unknown submitblock check result.")
-		self.has_submitblock = True
+                self.has_submitblock = True
         finally:
               defer.returnValue(self.has_submitblock)
 
     
     @defer.inlineCallbacks
     def submitblock(self, block_hex, hash_hex, scrypt_hex):
-  #try 5 times? 500 Internal Server Error could mean random error or that TX messages setting is wrong
+    #try 5 times? 500 Internal Server Error could mean random error or that TX messages setting is wrong
         attempts = 0
         while True:
             attempts += 1

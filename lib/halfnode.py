@@ -136,40 +136,40 @@ class CTxOut(object):
 
 class CTransaction(object):
     def __init__(self):
-            self.nVersion = 1
-            if settings.COINDAEMON_TX != False:
-                self.nVersion = 2
-	    if settings.COINDAEMON_Reward == 'POS':
-		self.nTime=0
-            self.vin = []
-            self.vout = []
-            self.nLockTime = 0
-            self.sha256 = None
-	    if settings.COINDAEMON_TX != False: 
-		self.strTxComment = ""
+        self.nVersion = 1
+        if settings.COINDAEMON_TX != False:
+            self.nVersion = 2
+        if settings.COINDAEMON_Reward == 'POS':
+            self.nTime=0
+        self.vin = []
+        self.vout = []
+        self.nLockTime = 0
+        self.sha256 = None
+        if settings.COINDAEMON_TX != False: 
+            self.strTxComment = ""
 
     def deserialize(self, f):
-            self.nVersion = struct.unpack("<i", f.read(4))[0]
-	    if settings.COINDAEMON_Reward == 'POS':
-	       self.nTime == struct.unpack("<i", f.read(4))[0]
-            self.vin = deser_vector(f, CTxIn)
-            self.vout = deser_vector(f, CTxOut)
-            self.nLockTime = struct.unpack("<I", f.read(4))[0]
-            self.sha256 = None
-            if settings.COINDAEMON_TX != False:
-               self.strTxComment = deser_string(f)
+        self.nVersion = struct.unpack("<i", f.read(4))[0]
+        if settings.COINDAEMON_Reward == 'POS':
+            self.nTime == struct.unpack("<i", f.read(4))[0]
+        self.vin = deser_vector(f, CTxIn)
+        self.vout = deser_vector(f, CTxOut)
+        self.nLockTime = struct.unpack("<I", f.read(4))[0]
+        self.sha256 = None
+        if settings.COINDAEMON_TX != False:
+           self.strTxComment = deser_string(f)
 
     def serialize(self):
-            r = ""
-            r += struct.pack("<i", self.nVersion)
-	    if settings.COINDAEMON_Reward == 'POS':
-               r += struct.pack("<i", self.nTime)
-            r += ser_vector(self.vin)
-            r += ser_vector(self.vout)
-            r += struct.pack("<I", self.nLockTime)
-            if settings.COINDAEMON_TX != False:
-               r += ser_string(self.strTxComment)
-            return r
+        r = ""
+        r += struct.pack("<i", self.nVersion)
+        if settings.COINDAEMON_Reward == 'POS':
+           r += struct.pack("<i", self.nTime)
+        r += ser_vector(self.vin)
+        r += ser_vector(self.vout)
+        r += struct.pack("<I", self.nLockTime)
+        if settings.COINDAEMON_TX != False:
+           r += ser_string(self.strTxComment)
+        return r
  
     def calc_sha256(self):
         if self.sha256 is None:
@@ -222,11 +222,11 @@ class CBlock(object):
         if settings.COINDAEMON_Reward == 'POS':
             r.append(ser_string(self.signature))
         return ''.join(r)
-	
+    
     def calc_algo(self):
-           if self.algo is None:
-	      r = coin.build_block(self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, self.nTime, self.nBits, self.nNonce)
-              self.algo = Coin.calc_algo(r)
+       if self.algo is None:
+           r = coin.build_block(self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, self.nTime, self.nBits, self.nNonce)
+           self.algo = Coin.calc_algo(r)
            return self.algo
 
     def is_valid(self):
@@ -258,298 +258,3 @@ class CBlock(object):
     def __repr__(self):
         return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x vtx=%s)" % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, time.ctime(self.nTime), self.nBits, self.nNonce, repr(self.vtx))
 
-class msg_version(object):
-    command = "version"
-    def __init__(self):
-        self.nVersion = MY_VERSION
-        self.nServices = 0
-        self.nTime = time.time()
-        self.addrTo = CAddress()
-        self.addrFrom = CAddress()
-        self.nNonce = random.getrandbits(64)
-        self.strSubVer = MY_SUBVERSION
-        self.nStartingHeight = 0
-        
-    def deserialize(self, f):
-        self.nVersion = struct.unpack("<i", f.read(4))[0]
-        if self.nVersion == 10300:
-            self.nVersion = 300
-        self.nServices = struct.unpack("<Q", f.read(8))[0]
-        self.nTime = struct.unpack("<q", f.read(8))[0]
-        self.addrTo = CAddress()
-        self.addrTo.deserialize(f)
-        self.addrFrom = CAddress()
-        self.addrFrom.deserialize(f)
-        self.nNonce = struct.unpack("<Q", f.read(8))[0]
-        self.strSubVer = deser_string(f)
-        self.nStartingHeight = struct.unpack("<i", f.read(4))[0]
-    def serialize(self):
-        r = []
-        r.append(struct.pack("<i", self.nVersion))
-        r.append(struct.pack("<Q", self.nServices))
-        r.append(struct.pack("<q", self.nTime))
-        r.append(self.addrTo.serialize())
-        r.append(self.addrFrom.serialize())
-        r.append(struct.pack("<Q", self.nNonce))
-        r.append(ser_string(self.strSubVer))
-        r.append(struct.pack("<i", self.nStartingHeight))
-        return ''.join(r)
-    def __repr__(self):
-        return "msg_version(nVersion=%i nServices=%i nTime=%s addrTo=%s addrFrom=%s nNonce=0x%016X strSubVer=%s nStartingHeight=%i)" % (self.nVersion, self.nServices, time.ctime(self.nTime), repr(self.addrTo), repr(self.addrFrom), self.nNonce, self.strSubVer, self.nStartingHeight)
-
-class msg_verack(object):
-    command = "verack"
-    def __init__(self):
-        pass
-    def deserialize(self, f):
-        pass
-    def serialize(self):
-        return ""
-    def __repr__(self):
-        return "msg_verack()"
-
-class msg_addr(object):
-    command = "addr"
-    def __init__(self):
-        self.addrs = []
-    def deserialize(self, f):
-        self.addrs = deser_vector(f, CAddress)
-    def serialize(self):
-        return ser_vector(self.addrs)
-    def __repr__(self):
-        return "msg_addr(addrs=%s)" % (repr(self.addrs))
-
-class msg_inv(object):
-    command = "inv"
-    def __init__(self):
-        self.inv = []
-    def deserialize(self, f):
-        self.inv = deser_vector(f, CInv)
-    def serialize(self):
-        return ser_vector(self.inv)
-    def __repr__(self):
-        return "msg_inv(inv=%s)" % (repr(self.inv))
-
-class msg_getdata(object):
-    command = "getdata"
-    def __init__(self):
-        self.inv = []
-    def deserialize(self, f):
-        self.inv = deser_vector(f, CInv)
-    def serialize(self):
-        return ser_vector(self.inv)
-    def __repr__(self):
-        return "msg_getdata(inv=%s)" % (repr(self.inv))
-
-class msg_getblocks(object):
-    command = "getblocks"
-    def __init__(self):
-        self.locator = CBlockLocator()
-        self.hashstop = 0L
-    def deserialize(self, f):
-        self.locator = CBlockLocator()
-        self.locator.deserialize(f)
-        self.hashstop = deser_uint256(f)
-    def serialize(self):
-        r = []
-        r.append(self.locator.serialize())
-        r.append(ser_uint256(self.hashstop))
-        return ''.join(r)
-    def __repr__(self):
-        return "msg_getblocks(locator=%s hashstop=%064x)" % (repr(self.locator), self.hashstop)
-
-class msg_tx(object):
-    command = "tx"
-    def __init__(self):
-        self.tx = CTransaction()
-    def deserialize(self, f):
-        self.tx.deserialize(f)
-    def serialize(self):
-        return self.tx.serialize()
-    def __repr__(self):
-        return "msg_tx(tx=%s)" % (repr(self.tx))
-
-class msg_block(object):
-    command = "block"
-    def __init__(self):
-        self.block = CBlock()
-    def deserialize(self, f):
-        self.block.deserialize(f)
-    def serialize(self):
-        return self.block.serialize()
-    def __repr__(self):
-        return "msg_block(block=%s)" % (repr(self.block))
-
-class msg_getaddr(object):
-    command = "getaddr"
-    def __init__(self):
-        pass
-    def deserialize(self, f):
-        pass
-    def serialize(self):
-        return ""
-    def __repr__(self):
-        return "msg_getaddr()"
-
-class msg_ping(object):
-    command = "ping"
-    def __init__(self):
-        pass
-    def deserialize(self, f):
-        pass
-    def serialize(self):
-        return ""
-    def __repr__(self):
-        return "msg_ping()"
-
-class msg_alert(object):
-    command = "alert"
-    def __init__(self):
-        pass
-    def deserialize(self, f):
-        pass
-    def serialize(self):
-        return ""
-    def __repr__(self):
-        return "msg_alert()"
-    
-class BitcoinP2PProtocol(Protocol):
-    messagemap = {
-        "version": msg_version,
-        "verack": msg_verack,
-        "addr": msg_addr,
-        "inv": msg_inv,
-        "getdata": msg_getdata,
-        "getblocks": msg_getblocks,
-        "tx": msg_tx,
-        "block": msg_block,
-        "getaddr": msg_getaddr,
-        "ping": msg_ping,
-        "alert": msg_alert,
-    }
-   
-    def connectionMade(self):
-        peer = self.transport.getPeer()
-        self.dstaddr = peer.host
-        self.dstport = peer.port
-        self.recvbuf = ""
-        self.last_sent = 0
- 
-        t = msg_version()
-        t.nStartingHeight = getattr(self, 'nStartingHeight', 0)
-        t.addrTo.ip = self.dstaddr
-        t.addrTo.port = self.dstport
-        t.addrTo.nTime = time.time()
-        t.addrFrom.ip = "0.0.0.0"
-        t.addrFrom.port = 0
-        t.addrFrom.nTime = time.time()
-        self.send_message(t)
-        
-    def dataReceived(self, data):
-        self.recvbuf += data
-        self.got_data()
-        
-    def got_data(self):
-        while True:
-            if len(self.recvbuf) < 4:
-                return
-            if self.recvbuf[:4] != "\xf9\xbe\xb4\xd9":
-                raise ValueError("got garbage %s" % repr(self.recvbuf))
-
-            if len(self.recvbuf) < 4 + 12 + 4 + 4:
-                return
-            command = self.recvbuf[4:4+12].split("\x00", 1)[0]
-            msglen = struct.unpack("<i", self.recvbuf[4+12:4+12+4])[0]
-            checksum = self.recvbuf[4+12+4:4+12+4+4]
-            if len(self.recvbuf) < 4 + 12 + 4 + 4 + msglen:
-                return
-            msg = self.recvbuf[4+12+4+4:4+12+4+4+msglen]
-            th = SHA256.new(msg).digest()
-            h = SHA256.new(th).digest()
-            if checksum != h[:4]:
-                raise ValueError("got bad checksum %s" % repr(self.recvbuf))
-            self.recvbuf = self.recvbuf[4+12+4+4+msglen:]
-
-            if command in self.messagemap:
-                f = cStringIO.StringIO(msg)
-                t = self.messagemap[command]()
-                t.deserialize(f)
-                self.got_message(t)
-            else:
-                print "UNKNOWN COMMAND", command, repr(msg)
-                
-    def prepare_message(self, message):       
-        command = message.command
-        data = message.serialize()
-        tmsg = "\xf9\xbe\xb4\xd9"
-        tmsg += command
-        tmsg += "\x00" * (12 - len(command))
-        tmsg += struct.pack("<I", len(data))
-        th = SHA256.new(data).digest()
-        h = SHA256.new(th).digest()
-        tmsg += h[:4]
-        tmsg += data
-        return tmsg
-    
-    def send_serialized_message(self, tmsg):
-        if not self.connected:
-            return
-        
-        self.transport.write(tmsg)
-        self.last_sent = time.time()       
-        
-    def send_message(self, message):
-        if not self.connected:
-            return
-        
-        #print message.command
-        
-        #print "send %s" % repr(message)
-        command = message.command
-        data = message.serialize()
-        tmsg = "\xf9\xbe\xb4\xd9"
-        tmsg += command
-        tmsg += "\x00" * (12 - len(command))
-        tmsg += struct.pack("<I", len(data))
-        th = SHA256.new(data).digest()
-        h = SHA256.new(th).digest()
-        tmsg += h[:4]
-        tmsg += data
-        
-        #print tmsg, len(tmsg)
-        self.transport.write(tmsg)
-        self.last_sent = time.time()
-        
-    def got_message(self, message):
-        if self.last_sent + 30 * 60 < time.time():
-            self.send_message(msg_ping())
-
-        mname = 'do_' + message.command
-        #print mname
-        if not hasattr(self, mname):
-            return
-
-        method = getattr(self, mname)
-        method(message)
-
-#        if message.command == "tx":
-#            message.tx.calc_sha256()
-#            sha256 = message.tx.sha256
-#            pubkey = binascii.hexlify(message.tx.vout[0].scriptPubKey)
-#            txlock.acquire()
-#            tx.append([str(sha256), str(time.time()), str(self.dstaddr), pubkey])
-#            txlock.release()
-
-    def do_version(self, message):
-        #print message
-        self.send_message(msg_verack())
-
-    def do_inv(self, message):
-        want = msg_getdata()
-        for i in message.inv:
-            if i.type == 1:
-                want.inv.append(i)
-            if i.type == 2:
-                want.inv.append(i)
-        if len(want.inv):
-            self.send_message(want)

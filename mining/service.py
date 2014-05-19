@@ -47,7 +47,7 @@ class MiningService(GenericService):
 
     @admin
     def update_block(self):
-        '''Connect this RPC call to 'litecoind -blocknotify' for 
+        '''Connect this RPC call to 'coind -blocknotify' for 
         instant notification about new block on the network.
         See blocknotify.sh in /scripts/ for more info.'''
         
@@ -56,14 +56,14 @@ class MiningService(GenericService):
         return True 
 
     @admin
-    def add_litecoind(self, *args):
-        ''' Function to add a litecoind instance live '''
+    def add_coind(self, *args):
+        ''' Function to add a coind instance live '''
         if len(args) != 4:
             raise SubmitException("Incorrect number of parameters sent")
 
         #(host, port, user, password) = args
-        Interfaces.template_registry.bitcoin_rpc.add_connection(args[0], args[1], args[2], args[3])
-        log.info("New litecoind connection added %s:%s" % (args[0], args[1]))
+        Interfaces.template_registry.coin_rpc.add_connection(args[0], args[1], args[2], args[3])
+        log.info("New coind connection added %s:%s" % (args[0], args[1]))
         return True 
     
     @admin
@@ -108,10 +108,25 @@ class MiningService(GenericService):
         
         session = self.connection_ref().get_session()
         session['extranonce1'] = extranonce1
+        
+        ''' It isn't clear why these are in here because they are unused anywhere else
+            I can only assume it is to do some diff subscription over subscription call
+            For now, I init the session keys so it doesn't bomb out'''
+        if 'difficulty' not in session.keys():
+            session['difficulty'] = settings.POOL_TARGET
+            
+        if 'job_id' not in session.keys():
+            session['job_id'] = None
+            
         session['prev_diff'] = session['difficulty']
-        session['prev_jobid'] = job_id
+        session['prev_jobid'] = session['job_id']
+        
         session['difficulty'] = settings.POOL_TARGET
-        connection_ref().rpc('mining.set_difficulty', [new_diff,], is_notification=True)
+        
+        #This must be a WIP. I don't see supporting implementations
+        #I get further with this commented out
+        #self.connection_ref().rpc('mining.set_difficulty', [session['difficulty'],], is_notification=True)
+        
         return Pubsub.subscribe(self.connection_ref(), MiningSubscription()) + (extranonce1_hex, extranonce2_size)
         
     def submit(self, worker_name, work_id, extranonce2, ntime, nonce):
@@ -195,7 +210,7 @@ class MiningService(GenericService):
             block_hash, difficulty, submit_time, True, ip, '', share_diff)
 
         if on_submit != None:
-            # Pool performs submitblock() to litecoind. Let's hook
+            # Pool performs submitblock() to coind. Let's hook
             # to result and report it to share manager
             on_submit.addCallback(Interfaces.share_manager.on_submit_block,
                 worker_name, block_header, block_hash, submit_time, ip, share_diff)

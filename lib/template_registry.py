@@ -5,9 +5,14 @@ import StringIO
 import settings
 import lib.logger
 import lib.settings as settings
+import lib.extranonce_counter
+import mining.interfaces
 import importlib
 from twisted.internet import defer
 from lib.exceptions import SubmitException
+
+ExtranonceCounter = lib.extranonce_counter.ExtranonceCounter
+Interfaces = mining.interfaces.Interfaces
 
 log = lib.logger.get_logger('template_registry')
 log.debug("Got to Template Registry")
@@ -31,7 +36,7 @@ class TemplateRegistry(object):
     on valid block templates, provide internal interface for stratum
     service and implements block validation and submits.'''
     
-    def __init__(self, block_template_class, coinbaser, bitcoin_rpc, instance_id,
+    def __init__(self, block_template_class, coinbaser, coin_rpc, instance_id,
                  on_template_callback, on_block_callback):
         self.prevhashes = {}
         self.jobs = weakref.WeakValueDictionary()
@@ -42,7 +47,7 @@ class TemplateRegistry(object):
         log.debug("Got to Template Registry")
         self.coinbaser = coinbaser
         self.block_template_class = block_template_class
-        self.bitcoin_rpc = bitcoin_rpc
+        self.coin_rpc = coin_rpc
         self.on_block_callback = on_block_callback
         self.on_template_callback = on_template_callback
         
@@ -56,13 +61,13 @@ class TemplateRegistry(object):
     def get_new_extranonce1(self):
         '''Generates unique extranonce1 (e.g. for newly
         subscribed connection.'''
-        log.debug("Getting Unique Extronance")
+        log.debug("Getting Unique Extranonce")
         return self.extranonce_counter.get_new_bin()
     
     def get_last_broadcast_args(self):
         '''Returns arguments for mining.notify
         from last known template.'''
-        log.debug("Getting Laat Template")
+        log.debug("Getting Last Template")
         return self.last_block.broadcast_args
         
     def add_template(self, block,block_height):
@@ -76,6 +81,8 @@ class TemplateRegistry(object):
             new_block = False
         else:
             new_block = True
+            # Drop templates of obsolete blocks
+            self.prevhashes = {}
             self.prevhashes[prevhash] = []
                
         # Blocks sorted by prevhash, so it's easy to drop
@@ -87,11 +94,6 @@ class TemplateRegistry(object):
         
         # Use this template for every new request
         self.last_block = block
-        
-        # Drop templates of obsolete blocks
-        for ph in self.prevhashes.keys():
-            if ph != prevhash:
-                del self.prevhashes[ph]
                 
         log.info("New template for %s" % prevhash)
 
@@ -113,7 +115,7 @@ class TemplateRegistry(object):
         self.update_in_progress = True
         self.last_update = Interfaces.timestamper.time()
         
-        d = self.bitcoin_rpc.getblocktemplate()
+        d = self.coin_rpc.getblocktemplate()
         d.addCallback(self._update_block)
         d.addErrback(self._update_block_failed)
         
@@ -136,7 +138,7 @@ class TemplateRegistry(object):
     
     def diff_to_target(self, difficulty):
         '''Converts difficulty to target'''
-	diff1 = Coin.return_diff1
+        diff1 = coin.return_diff1()
         return diff1 / difficulty
     
     def get_job(self, job_id, worker_name, ip=False):
@@ -181,13 +183,13 @@ class TemplateRegistry(object):
         if settings.VARIABLE_DIFF == True:
             # Share Diff Should never be 0 
             if difficulty < settings.VDIFF_MIN_TARGET:
-        	log.exception("Worker %s @ IP: %s seems to be submitting Fake Shares"%(worker_name,ip))
-        	raise SubmitException("Diff is %s Share Rejected Reporting to Admin"%(difficulty))
+                log.exception("Worker %s @ IP: %s seems to be submitting Fake Shares"%(worker_name,ip))
+                raise SubmitException("Diff is %s Share Rejected Reporting to Admin"%(difficulty))
         else:
-             if difficulty < settings.POOL_TARGET:
-             	log.exception("Worker %s @ IP: %s seems to be submitting Fake Shares"%(worker_name,ip))
-        	raise SubmitException("Diff is %s Share Rejected Reporting to Admin"%(difficulty))
-        	
+            if difficulty < settings.POOL_TARGET:
+                log.exception("Worker %s @ IP: %s seems to be submitting Fake Shares"%(worker_name,ip))
+                raise SubmitException("Diff is %s Share Rejected Reporting to Admin"%(difficulty))
+            
         # Check if extranonce2 looks correctly. extranonce2 is in hex form...
         if len(extranonce2) != self.extranonce2_size * 2:
             raise SubmitException("Incorrect size of extranonce2. Expected %d chars" % (self.extranonce2_size*2))
@@ -234,12 +236,12 @@ class TemplateRegistry(object):
         header_bin = job.serialize_header(merkle_root_int, ntime_bin, nonce_bin)
     
         # 4. Reverse header and compare it with target of the user
-	Coin.hash_bin(header_bin)
+        hash_bin = coin.hash_bin(header_bin)
 
         hash_int = util.uint256_from_str(hash_bin)
         scrypt_hash_hex = "%064x" % hash_int
         header_hex = binascii.hexlify(header_bin)
-        header_hex = Coin.padding(header_hex)
+        header_hex = coin.padding(header_hex)
                  
         target_user = self.diff_to_target(difficulty)
         if hash_int > target_user:
@@ -259,8 +261,8 @@ class TemplateRegistry(object):
             log.info("We found a block candidate! %s" % scrypt_hash_hex)
 
             # Reverse the header and get the potential block hash (for scrypt only) 
-            block_hash_bin = Coin.hash_bin(header_bin)
-	    block_hash_hex = Coin.build_header(block_hash_bin)   
+            block_hash_bin = coin.block_hash_bin(header_bin)
+            block_hash_hex = coin.build_header(block_hash_bin)   
 
             # 6. Finalize and serialize block object 
             job.finalize(merkle_root_int, extranonce1_bin, extranonce2_bin, int(ntime, 16), int(nonce, 16))
@@ -271,7 +273,7 @@ class TemplateRegistry(object):
                             
             # 7. Submit block to the network
             serialized = binascii.hexlify(job.serialize())
-	    on_submit = self.bitcoin_rpc.submitblock(serialized, block_hash_hex, scrypt_hash_hex)
+            on_submit = self.coin_rpc.submitblock(serialized, block_hash_hex, scrypt_hash_hex)
             if on_submit:
                 self.update_block()
 
@@ -282,8 +284,8 @@ class TemplateRegistry(object):
         
         if settings.SOLUTION_BLOCK_HASH:
         # Reverse the header and get the potential block hash (for scrypt only) only do this if we want to send in the block hash to the shares table
-            block_hash_bin = Coin.hash_bin(header_bin)
-            block_hash_hex = Coin.build_header(block_hash_bin)
+            block_hash_bin = coin.block_hash_bin(header_bin)
+            block_hash_hex = coin.build_header(block_hash_bin)
             return (header_hex, block_hash_hex, share_diff, None)
         else:
             return (header_hex, scrypt_hash_hex, share_diff, None)
