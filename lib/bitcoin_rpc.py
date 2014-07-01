@@ -69,13 +69,11 @@ class BitcoinRPC(object):
              log.info("Submitting Block with submitblock")
              resp = (yield self._call('submitblock', [block_hex,]))
              log.info("Result: %s" % str(resp))
-             break
         except Exception as e:
   	     log.info("Error With SubmitBlock: Error: %s " % str(e))
   	     try:
                  resp = (yield self._call('getblocktemplate', [{'mode': 'submit', 'data': block_hex}]))
                  log.info("Result: %s" % str(resp))
-                 break
 	     except Exception as e:
 	     	 log.info("Error with GetBlockTemplate: Error %s" % str(e))
 	     	
