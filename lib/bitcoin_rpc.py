@@ -26,12 +26,14 @@ class BitcoinRPC(object):
 
     def _call_raw(self, data):
         client.Headers
-        return client.getPage(
+        res = client.getPage(
             url=self.bitcoin_url,
             method='POST',
             headers=self.headers,
             postdata=data,
         )
+        print res
+        return res
            
     def _call(self, method, params):
         return self._call_raw(json.dumps({
