@@ -78,7 +78,6 @@ class BitcoinRPC(object):
                  break
 	     except Exception as e:
 	     	 log.info("Error with GetBlockTemplate: Error %s" % str(e))
-	     	 break
 	     	
         if json.loads(resp)['result'] == None:
             # make sure the block was created.
