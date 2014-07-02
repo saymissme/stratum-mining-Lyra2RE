@@ -69,7 +69,7 @@ class BitcoinRPC(object):
         attempts = 0
         while True:
             if attempts < 5:
-               attempts += 1
+                attempts += 1
 	        try:
                    log.info("Submitting Block with submitblock")
                    resp = (yield self._call('submitblock', [block_hex,]))
