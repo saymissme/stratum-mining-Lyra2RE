@@ -65,18 +65,27 @@ class BitcoinRPC(object):
     
     @defer.inlineCallbacks
     def submitblock(self, block_hex, hash_hex, scrypt_hex):
-        try:
-             log.info("Submitting Block with submitblock")
-             resp = (yield self._call('submitblock', [block_hex,]))
-             log.info("Result: %s" % str(resp))
-        except Exception as e:
-  	     log.info("Error With SubmitBlock: Error: %s " % str(e))
-  	     try:
-                 resp = (yield self._call('getblocktemplate', [{'mode': 'submit', 'data': block_hex}]))
-                 log.info("Result: %s" % str(resp))
-	     except Exception as e:
-	     	 log.info("Error with GetBlockTemplate: Error %s" % str(e))
-	     	
+    	#try 5 times? 500 Internal Server Error could mean random error or that TX messages setting is wrong
+        attempts = 0
+        while True:
+            if attempts < 5:
+               attempts += 1
+	        try:
+                   log.info("Submitting Block with submitblock")
+                   resp = (yield self._call('submitblock', [block_hex,]))
+                   log.info("Result: %s" % str(resp))
+                except Exception as e:
+  	            log.info("Error With SubmitBlock: Error: %s " % str(e))
+  	            try:
+                       resp = (yield self._call('getblocktemplate', [{'mode': 'submit', 'data': block_hex}]))
+                       log.info("Result: %s" % str(resp))
+	            except Exception as e:
+	     	        log.info("Error with GetBlockTemplate: Error %s" % str(e))
+	    else:
+	         log.exception("submitblock failed. Problem Submitting block %s" % str(e))
+                 log.exception("Try Enabling TX Messages in config.py!")
+                 raise
+
         if json.loads(resp)['result'] == None:
             # make sure the block was created.
             log.info("CHECKING FOR BLOCK AFTER SUBMITBLOCK")
