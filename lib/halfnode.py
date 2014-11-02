@@ -31,6 +31,9 @@ elif settings.COINDAEMON_ALGO == 'quark':
     import quark_hash
 elif settings.COINDAEMON_ALGO == 'skeinhash':
     import skeinhash
+elif settings.COINDAEMON_ALGO == 'Lyra2RE':
+	log.debug("########################################### Loading Lyra2RE Support #########################################################")
+	import lyra2re_hash
 
 else: 
     log.debug("########################################### Loading SHA256 Support ######################################################")
@@ -342,6 +345,8 @@ class CBlock(object):
             self.calc_scryptjane
         elif settings.COINDAEMON_ALGO == 'skein':
             self.calc_skein
+		elif settings.COINDAEMON_ALGO == 'Lyra2RE':
+			self.calc_lyra2re()
         else:
             self.calc_sha256()
 
@@ -359,6 +364,9 @@ class CBlock(object):
         elif settings.COINDAEMON_ALGO == 'skein':
             if self.skein > target:
                 return False
+		elif settings.COINDAEMON_ALGO == 'Lyra2RE':
+			if self.lyra2re > target:
+				return False
         else:
            if self.sha256 > target:
                 return False
