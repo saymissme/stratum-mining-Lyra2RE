@@ -32,8 +32,8 @@ elif settings.COINDAEMON_ALGO == 'quark':
 elif settings.COINDAEMON_ALGO == 'skeinhash':
     import skeinhash
 elif settings.COINDAEMON_ALGO == 'Lyra2RE':
-	log.debug("########################################### Loading Lyra2RE Support #########################################################")
-	import lyra2re_hash
+    log.debug("########################################### Loading Lyra2RE Support #########################################################")
+    import lyra2re_hash
 
 else: 
     log.debug("########################################### Loading SHA256 Support ######################################################")
@@ -244,6 +244,8 @@ class CBlock(object):
             self.quark = None
         elif settings.COINDAEMON_ALGO == 'skein':
             self.skein = None
+        elif settings.COINDAEMON_ALGO == 'Lyra2RE':
+            self.Lyra2RE = None
         if settings.COINDAEMON_Reward == 'POS':
             self.signature = b""
         else: pass
@@ -322,6 +324,18 @@ class CBlock(object):
                 r.append(struct.pack("<I", self.nNonce))
                 self.skein = uint256_from_str(skeinhash.skeinhash(''.join(r)))
              return self.skein
+    elif settings.COINDAEMON_ALGO == 'Lyra2RE':
+        def calc_lyra2re(self):
+             if self.Lyra2RE is None:
+                r = []
+                r.append(struct.pack("<i", self.nVersion))
+                r.append(ser_uint256(self.hashPrevBlock))
+                r.append(ser_uint256(self.hashMerkleRoot))
+                r.append(struct.pack("<I", self.nTime))
+                r.append(struct.pack("<I", self.nBits))
+                r.append(struct.pack("<I", self.nNonce))
+                self.Lyra2RE = uint256_from_str(lyra2re_hash.getPoWHash(''.join(r)))
+             return self.Lyra2RE
     else:
        def calc_sha256(self):
            if self.sha256 is None:
@@ -345,8 +359,8 @@ class CBlock(object):
             self.calc_scryptjane
         elif settings.COINDAEMON_ALGO == 'skein':
             self.calc_skein
-		elif settings.COINDAEMON_ALGO == 'Lyra2RE':
-			self.calc_lyra2re()
+        elif settings.COINDAEMON_ALGO == 'Lyra2RE':
+            self.calc_lyra2re()
         else:
             self.calc_sha256()
 
@@ -364,9 +378,9 @@ class CBlock(object):
         elif settings.COINDAEMON_ALGO == 'skein':
             if self.skein > target:
                 return False
-		elif settings.COINDAEMON_ALGO == 'Lyra2RE':
-			if self.lyra2re > target:
-				return False
+        elif settings.COINDAEMON_ALGO == 'Lyra2RE':
+            if self.Lyra2RE > target:
+                return False
         else:
            if self.sha256 > target:
                 return False
